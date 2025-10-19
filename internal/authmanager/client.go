@@ -16,23 +16,84 @@ import (
 	"google.golang.org/api/docs/v1"
 )
 
-type AuthManager struct {
-	config    *oauth2.Config
-	tokenPath string
+// Authenticator handles the OAuth authentication flow
+//
+//go:generate mockgen -destination=mocks/mock_authenticator.go -package=mocks github.com/takeuchi-shogo/google-doc-review/internal/authmanager Authenticator
+type Authenticator interface {
+	// Authenticate performs the OAuth flow and returns the authorization code
+	Authenticate(authURL string) (string, error)
 }
 
-func (a *AuthManager) NewClient() (*http.Client, error) {
-	context := context.Background()
-	// Handle the exchange code to initiate a transport.
-	tok, err := a.config.Exchange(context, "authorization-code")
+type AuthManager struct {
+	config        *oauth2.Config
+	tokenPath     string
+	authenticator Authenticator
+}
+
+// GetClient returns an authenticated HTTP client using saved token
+// Returns error if token doesn't exist
+func (a *AuthManager) GetClient(ctx context.Context) (*http.Client, error) {
+	// トークンを読み込む
+	token, err := a.loadToken()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("no saved token found: %w", err)
 	}
-	client := a.config.Client(context, tok)
+
+	// 認証済みクライアントを作成
+	client := a.config.Client(ctx, token)
 	return client, nil
 }
 
+// GetOrAuthenticateClient returns an authenticated HTTP client
+// If token doesn't exist, it will trigger authentication flow
+func (a *AuthManager) GetOrAuthenticateClient(ctx context.Context) (*http.Client, error) {
+	// まず既存のトークンで試す
+	client, err := a.GetClient(ctx)
+	if err == nil {
+		return client, nil
+	}
+
+	// トークンが存在しない場合は認証を実行
+	if err := a.Authenticate(); err != nil {
+		return nil, fmt.Errorf("authentication failed: %w", err)
+	}
+
+	// 認証後にクライアントを取得
+	return a.GetClient(ctx)
+}
+
+// BrowserAuthenticator implements Authenticator using browser-based OAuth flow
+type BrowserAuthenticator struct{}
+
+func (b *BrowserAuthenticator) Authenticate(authURL string) (string, error) {
+	fmt.Printf("ブラウザが開きます。Googleアカウントで認証してください...\n")
+	fmt.Printf("開かない場合はこのURLにアクセス: %s\n", authURL)
+
+	// ブラウザを自動で開く
+	openBrowser(authURL)
+
+	// ローカルサーバーでコールバックを待つ
+	code := make(chan string)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		code <- r.URL.Query().Get("code")
+		fmt.Fprintf(w, "認証成功！このウィンドウを閉じてください。")
+	})
+
+	server := &http.Server{Addr: ":8089", Handler: mux}
+
+	go server.ListenAndServe()
+	authCode := <-code
+	server.Shutdown(context.Background())
+
+	return authCode, nil
+}
+
 func New() *AuthManager {
+	return NewWithAuthenticator(&BrowserAuthenticator{})
+}
+
+func NewWithAuthenticator(authenticator Authenticator) *AuthManager {
 	// 組み込みのOAuth credentials（公開アプリとして登録）
 	config := &oauth2.Config{
 		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
@@ -46,8 +107,9 @@ func New() *AuthManager {
 	}
 
 	return &AuthManager{
-		config:    config,
-		tokenPath: getTokenPath(), // ~/.design-doc-reviewer/token.json
+		config:        config,
+		tokenPath:     getTokenPath(), // ~/.design-doc-reviewer/token.json
+		authenticator: authenticator,
 	}
 }
 
@@ -69,24 +131,11 @@ func (a *AuthManager) Authenticate() error {
 	// OAuth フロー開始
 	authURL := a.config.AuthCodeURL("state", oauth2.AccessTypeOffline)
 
-	fmt.Printf("ブラウザが開きます。Googleアカウントで認証してください...\n")
-	fmt.Printf("開かない場合はこのURLにアクセス: %s\n", authURL)
-
-	// ブラウザを自動で開く
-	openBrowser(authURL)
-
-	// ローカルサーバーでコールバックを待つ
-	code := make(chan string)
-	server := &http.Server{Addr: ":8089"}
-
-	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-		code <- r.URL.Query().Get("code")
-		fmt.Fprintf(w, "認証成功！このウィンドウを閉じてください。")
-	})
-
-	go server.ListenAndServe()
-	authCode := <-code
-	server.Shutdown(context.Background())
+	// Authenticatorを使って認証コードを取得
+	authCode, err := a.authenticator.Authenticate(authURL)
+	if err != nil {
+		return fmt.Errorf("authentication failed: %w", err)
+	}
 
 	// トークン取得と保存
 	token, err := a.config.Exchange(context.Background(), authCode)
@@ -98,8 +147,40 @@ func (a *AuthManager) Authenticate() error {
 }
 
 func (a *AuthManager) saveToken(token *oauth2.Token) error {
-	json.NewEncoder(os.Stdout).Encode(token)
+	// ディレクトリを作成（存在しない場合）
+	dir := filepath.Dir(a.tokenPath)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return fmt.Errorf("failed to create token directory: %w", err)
+	}
+
+	// トークンをJSONに変換
+	data, err := json.Marshal(token)
+	if err != nil {
+		return fmt.Errorf("failed to marshal token: %w", err)
+	}
+
+	// ファイルに保存（所有者のみ読み書き可能）
+	if err := os.WriteFile(a.tokenPath, data, 0600); err != nil {
+		return fmt.Errorf("failed to write token file: %w", err)
+	}
+
 	return nil
+}
+
+func (a *AuthManager) loadToken() (*oauth2.Token, error) {
+	// ファイルを読み込む
+	data, err := os.ReadFile(a.tokenPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read token file: %w", err)
+	}
+
+	// JSONをパース
+	var token oauth2.Token
+	if err := json.Unmarshal(data, &token); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal token: %w", err)
+	}
+
+	return &token, nil
 }
 
 // openBrowser opens the default browser to the specified URL
