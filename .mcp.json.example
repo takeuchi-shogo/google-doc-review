@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "google-doc-review": {
+      "command": "go",
+      "args": ["run", "cmd/server/main.go"],
+      "env": {
+        "GOOGLE_CLIENT_ID": "your-client-id",
+        "GOOGLE_CLIENT_SECRET": "your-client-secret"
+      }
+    }
+  }
+}

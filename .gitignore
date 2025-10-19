@@ -1,3 +1,11 @@
+# Build artifacts
+tmp/
+
+# Environment variables
 .env
 
+# Claude
 CLAUDE.local.md
+
+# MCP
+.mcp.json

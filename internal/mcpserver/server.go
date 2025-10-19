@@ -7,12 +7,19 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
+	"github.com/takeuchi-shogo/google-doc-review/config"
 	"github.com/takeuchi-shogo/google-doc-review/internal/authmanager"
 	"github.com/takeuchi-shogo/google-doc-review/internal/review"
 )
 
 func Run() error {
 	ctx := context.Background()
+
+	// 設定を読み込む
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
 
 	// MCP serverを起動
 	s := server.NewMCPServer(
@@ -22,7 +29,11 @@ func Run() error {
 	)
 
 	// 認証してHTTPクライアントを取得
-	authMgr := authmanager.New()
+	authMgr := authmanager.NewWithConfig(
+		cfg.Google.ClientID,
+		cfg.Google.ClientSecret,
+		&authmanager.BrowserAuthenticator{},
+	)
 	client, err := authMgr.GetOrAuthenticateClient(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get authenticated client: %w", err)

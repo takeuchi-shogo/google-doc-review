@@ -93,12 +93,11 @@ func New() *AuthManager {
 	return NewWithAuthenticator(&BrowserAuthenticator{})
 }
 
-func NewWithAuthenticator(authenticator Authenticator) *AuthManager {
-	// 組み込みのOAuth credentials（公開アプリとして登録）
+func NewWithConfig(clientID, clientSecret string, authenticator Authenticator) *AuthManager {
 	config := &oauth2.Config{
-		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
-		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
-		RedirectURL:  "http://localhost:8888/callback",
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RedirectURL:  "http://localhost:8089/callback",
 		Scopes: []string{
 			docs.DocumentsReadonlyScope,
 			docs.DriveReadonlyScope,
@@ -108,9 +107,25 @@ func NewWithAuthenticator(authenticator Authenticator) *AuthManager {
 
 	return &AuthManager{
 		config:        config,
-		tokenPath:     getTokenPath(), // ~/.design-doc-reviewer/token.json
+		tokenPath:     getTokenPath(),
 		authenticator: authenticator,
 	}
+}
+
+func NewWithAuthenticator(authenticator Authenticator) *AuthManager {
+	// 組み込みのOAuth credentials（公開アプリとして登録）
+	clientID := os.Getenv("GOOGLE_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+
+	// デバッグ用: 環境変数が設定されているか確認
+	if clientID == "" {
+		fmt.Fprintf(os.Stderr, "WARNING: GOOGLE_CLIENT_ID is not set\n")
+	}
+	if clientSecret == "" {
+		fmt.Fprintf(os.Stderr, "WARNING: GOOGLE_CLIENT_SECRET is not set\n")
+	}
+
+	return NewWithConfig(clientID, clientSecret, authenticator)
 }
 
 func getTokenPath() string {
