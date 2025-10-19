@@ -1,8 +1,13 @@
 package main
 
-import "fmt"
+import (
+	"log"
+
+	"github.com/takeuchi-shogo/google-doc-review/internal/mcpserver"
+)
 
 func main() {
-	// TODO: not implemented
-	fmt.Println("Hello, World!")
+	if err := mcpserver.Run(); err != nil {
+		log.Fatalf("Failed to run MCP server: %v", err)
+	}
 }

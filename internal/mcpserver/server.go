@@ -6,58 +6,62 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"google.golang.org/api/docs/v1"
-	"google.golang.org/api/option"
 
 	"github.com/takeuchi-shogo/google-doc-review/internal/authmanager"
+	"github.com/takeuchi-shogo/google-doc-review/internal/review"
 )
 
 func Run() error {
+	ctx := context.Background()
+
 	// MCP serverを起動
 	s := server.NewMCPServer(
 		"google-doc-review",
 		"0.0.1",
-		server.WithToolCapabilities(false),
+		server.WithToolCapabilities(true), // ツール機能を有効化
 	)
 
+	// 認証してHTTPクライアントを取得
 	authMgr := authmanager.New()
-	if err := authMgr.Authenticate(); err != nil {
-		return err
+	client, err := authMgr.GetOrAuthenticateClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get authenticated client: %w", err)
 	}
+
+	// GoogleDocFetcherを作成
+	fetcher := review.NewGoogleDocFetcher(client)
+
+	// ツールを登録
+	tool := mcp.NewTool("fetch_google_doc",
+		mcp.WithDescription("Fetch content from a Google Doc by URL"),
+		mcp.WithString("url",
+			mcp.Required(),
+			mcp.Description("The Google Docs URL to fetch"),
+		),
+	)
+
+	s.AddTool(tool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		// URLパラメータを取得
+		url, err := request.RequireString("url")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		// ドキュメントを取得
+		doc, err := fetcher.FetchDocument(ctx, url)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to fetch document: %v", err)), nil
+		}
+
+		// 結果を返す
+		result := fmt.Sprintf("Title: %s\n\nContent:\n%s", doc.Title, doc.Content)
+		return mcp.NewToolResultText(result), nil
+	})
 
 	// Start the stdio server
 	if err := server.ServeStdio(s); err != nil {
-		fmt.Printf("Server error: %v\n", err)
-		return err
+		return fmt.Errorf("server error: %w", err)
 	}
 
 	return nil
-}
-
-func fetchDoc(authMgr *authmanager.AuthManager, args map[string]interface{}) (*mcp.CallToolResult, error) {
-	docID := args["doc_id"].(string)
-
-	client, err := authMgr.NewClient()
-	if err != nil {
-		return nil, err
-	}
-
-	docsService, err := docs.NewService(context.Background(), option.WithHTTPClient(client))
-	if err != nil {
-		return nil, err
-	}
-
-	doc, err := docsService.Documents.Get(docID).Do()
-	if err != nil {
-		return nil, err
-	}
-
-	// ドキュメント内容をマークダウン形式に変換
-	content := convertToMarkdown(doc)
-
-	return mcp.NewToolResultStructuredOnly(content), nil
-}
-
-func convertToMarkdown(doc *docs.Document) string {
-	return fmt.Sprintf("# %s\n\n%s", doc.Title, doc.Body.Content)
 }
