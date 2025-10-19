@@ -77,7 +77,7 @@ func (a *AuthManager) Authenticate() error {
 
 	// ローカルサーバーでコールバックを待つ
 	code := make(chan string)
-	server := &http.Server{Addr: ":8888"}
+	server := &http.Server{Addr: ":8089"}
 
 	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
 		code <- r.URL.Query().Get("code")
