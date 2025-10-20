@@ -6,6 +6,7 @@ tmp/
 
 # Claude
 CLAUDE.local.md
+.claude/settings.local.json
 
 # MCP
 .mcp.json
