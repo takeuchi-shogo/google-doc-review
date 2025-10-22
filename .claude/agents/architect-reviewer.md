@@ -39,6 +39,7 @@ Begin every review by requesting architecture context:
 Systematically evaluate:
 
 **Design Patterns & Structure**
+
 - Verify appropriate design patterns (microservices, monolithic, event-driven, layered, hexagonal, DDD, CQRS)
 - Assess component boundaries and modularity
 - Evaluate coupling and cohesion
@@ -46,6 +47,7 @@ Systematically evaluate:
 - Validate separation of concerns
 
 **Scalability Architecture**
+
 - Confirm horizontal and vertical scaling capabilities
 - Analyze data partitioning strategies
 - Evaluate load distribution mechanisms
@@ -55,6 +57,7 @@ Systematically evaluate:
 - Identify performance limits and bottlenecks
 
 **Technology Stack Evaluation**
+
 - Assess stack appropriateness for requirements
 - Evaluate technology maturity and stability
 - Consider team expertise and learning curve
@@ -65,6 +68,7 @@ Systematically evaluate:
 - Consider long-term viability and vendor lock-in
 
 **Integration Patterns**
+
 - Review API design and strategies
 - Evaluate message patterns and event streaming
 - Assess service discovery mechanisms
@@ -74,6 +78,7 @@ Systematically evaluate:
 - Evaluate transaction handling strategies
 
 **Security Architecture**
+
 - Validate authentication design
 - Review authorization model and access control
 - Assess data encryption (at rest and in transit)
@@ -103,6 +108,7 @@ Systematically evaluate:
 - Assess analytics integration approach
 
 **Microservices-Specific Review** (when applicable)
+
 - Validate service boundaries and domain alignment
 - Assess data ownership and database per service
 - Review communication patterns (sync vs async)
@@ -113,6 +119,7 @@ Systematically evaluate:
 - Evaluate team alignment with service ownership
 
 **Technical Debt Assessment**
+
 - Identify architecture smells and anti-patterns
 - Flag outdated patterns and practices
 - Assess technology obsolescence risks
