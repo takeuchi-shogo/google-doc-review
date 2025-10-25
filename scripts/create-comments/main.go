@@ -36,8 +36,11 @@ func main() {
 		log.Fatalf("failed to create comment manager: %v", err)
 	}
 
-	// ドキュメントID
-	docID := "1UKUfFhraETmAQIG-sQun_Ctga0UE6jOq9zfpDmarErQ"
+	// ドキュメントIDを設定から取得
+	docID := cfg.Google.TestDocID
+	if docID == "" {
+		log.Fatal("GOOGLE_TEST_DOC_ID is required. Please set it in .env file or environment variable.")
+	}
 
 	// レビューコメントを作成
 	issues := []comment.Issue{
@@ -52,7 +55,7 @@ func main() {
 		{
 			Type:        comment.IssueTypeMissing,
 			Severity:    comment.SeverityCritical,
-			LineNumber:  0,
+			LineNumber:  1,
 			TextContent: "[Design Doc] テストデザインドッグ",
 			Suggestion:  "ドキュメントの目的、背景、対象読者を追加してください",
 			Description: "デザインドキュメントとして必須の「概要」セクションが不足しています",
@@ -60,7 +63,7 @@ func main() {
 		{
 			Type:        comment.IssueTypeStructure,
 			Severity:    comment.SeverityWarning,
-			LineNumber:  0,
+			LineNumber:  3,
 			TextContent: "テストデザインドッグです。",
 			Suggestion:  "以下のセクション構成を追加することを推奨します:\n- 背景・目的\n- 設計概要\n- 詳細設計\n- 実装計画\n- テスト計画\n- リスクと対策",
 			Description: "デザインドキュメントとして適切なセクション構成が必要です",
@@ -68,7 +71,7 @@ func main() {
 		{
 			Type:        comment.IssueTypeMissing,
 			Severity:    comment.SeverityCritical,
-			LineNumber:  0,
+			LineNumber:  5,
 			TextContent: "テストテスト",
 			Suggestion:  "具体的な設計内容、システムアーキテクチャ、技術選定理由などを記載してください",
 			Description: "内容が不十分です。「テストテスト」だけでは設計意図が伝わりません",

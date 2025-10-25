@@ -33,8 +33,12 @@ func main() {
 	// GoogleDocFetcherを作成
 	fetcher := review.NewGoogleDocFetcher(client)
 
-	// ドキュメントIDを指定
-	docURL := "https://docs.google.com/document/d/1UKUfFhraETmAQIG-sQun_Ctga0UE6jOq9zfpDmarErQ/edit?tab=t.0#heading=h.62f0wfno6lbr"
+	// ドキュメントIDを設定から取得してURLを構築
+	docID := cfg.Google.TestDocID
+	if docID == "" {
+		log.Fatal("GOOGLE_TEST_DOC_ID is required. Please set it in .env file or environment variable.")
+	}
+	docURL := fmt.Sprintf("https://docs.google.com/document/d/%s/edit", docID)
 
 	// ドキュメントを取得
 	doc, err := fetcher.FetchDocument(ctx, docURL)

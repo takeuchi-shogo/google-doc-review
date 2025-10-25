@@ -41,11 +41,11 @@ func NewCommentManager(client *http.Client) (*CommentManager, error) {
 
 // CommentRequest represents a request to create a comment
 type CommentRequest struct {
-	FileID          string // Google Doc file ID
-	Content         string // Comment content
-	QuotedText      string // Text to quote (optional)
-	LineNumber      int    // Line number for anchored comment (optional, 0 means no anchor)
-	LineLength      int    // Length of the line selection (optional)
+	FileID     string // Google Doc file ID
+	Content    string // Comment content
+	QuotedText string // Text to quote (optional)
+	LineNumber int    // Line number for anchored comment (optional, 0 means no anchor)
+	LineLength int    // Length of the line selection (optional)
 }
 
 // CommentResponse represents the result of creating a comment
@@ -243,10 +243,10 @@ func createAnchorJSONWithPosition(pos *TextPosition) (string, error) {
 type IssueType string
 
 const (
-	IssueTypeGrammar    IssueType = "grammar"
-	IssueTypeClarity    IssueType = "clarity"
-	IssueTypeStructure  IssueType = "structure"
-	IssueTypeMissing    IssueType = "missing"
+	IssueTypeGrammar      IssueType = "grammar"
+	IssueTypeClarity      IssueType = "clarity"
+	IssueTypeStructure    IssueType = "structure"
+	IssueTypeMissing      IssueType = "missing"
 	IssueTypeInconsistent IssueType = "inconsistent"
 )
 
