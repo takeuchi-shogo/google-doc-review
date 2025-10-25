@@ -54,6 +54,7 @@ anchor := map[string]any{
 ### 試行3: QuotedText自動アンカー方式
 
 **アプローチ:**
+
 ```go
 comment := &drive.Comment{
     Content: content,
