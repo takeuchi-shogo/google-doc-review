@@ -120,7 +120,7 @@ func NewWithConfig(clientID, clientSecret string, authenticator Authenticator) *
 		RedirectURL:  "http://localhost:8089/callback",
 		Scopes: []string{
 			docs.DocumentsReadonlyScope,
-			docs.DriveReadonlyScope,
+			"https://www.googleapis.com/auth/drive", // Need write access for comments
 		},
 		Endpoint: google.Endpoint,
 	}
