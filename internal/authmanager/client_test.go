@@ -37,7 +37,7 @@ func TestNew(t *testing.T) {
 			clientSecret: "test-client-secret",
 			expectedScopes: []string{
 				docs.DocumentsReadonlyScope,
-				docs.DriveReadonlyScope,
+				"https://www.googleapis.com/auth/drive",
 			},
 		},
 		{
@@ -46,7 +46,7 @@ func TestNew(t *testing.T) {
 			clientSecret: "",
 			expectedScopes: []string{
 				docs.DocumentsReadonlyScope,
-				docs.DriveReadonlyScope,
+				"https://www.googleapis.com/auth/drive",
 			},
 		},
 	}
