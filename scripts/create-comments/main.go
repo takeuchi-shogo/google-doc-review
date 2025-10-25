@@ -36,8 +36,11 @@ func main() {
 		log.Fatalf("failed to create comment manager: %v", err)
 	}
 
-	// ドキュメントID
-	docID := "1UKUfFhraETmAQIG-sQun_Ctga0UE6jOq9zfpDmarErQ"
+	// ドキュメントIDを設定から取得
+	docID := cfg.Google.TestDocID
+	if docID == "" {
+		log.Fatal("GOOGLE_TEST_DOC_ID is required. Please set it in .env file or environment variable.")
+	}
 
 	// レビューコメントを作成
 	issues := []comment.Issue{
