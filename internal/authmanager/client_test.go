@@ -81,7 +81,7 @@ func TestNew(t *testing.T) {
 				t.Errorf("ClientSecret mismatch (-want +got):\n%s", diff)
 			}
 
-			if diff := cmp.Diff("http://localhost:8888/callback", am.config.RedirectURL); diff != "" {
+			if diff := cmp.Diff("http://localhost:8089/callback", am.config.RedirectURL); diff != "" {
 				t.Errorf("RedirectURL mismatch (-want +got):\n%s", diff)
 			}
 
@@ -140,10 +140,11 @@ func TestGetClient(t *testing.T) {
 			wantErr:    false,
 		},
 		{
-			name:         "successful with expired token",
+			name:         "returns error with expired token",
 			setupToken:   true,
 			tokenExpired: true,
-			wantErr:      false,
+			wantErr:      true,
+			errContains:  "token has expired",
 		},
 		{
 			name:        "no token file exists",
@@ -161,23 +162,33 @@ func TestGetClient(t *testing.T) {
 
 			// Setup token file if needed
 			if tt.setupToken {
-				var expiry time.Time
+				var issuedAt time.Time
+				var expiresIn time.Duration
+
 				if tt.tokenExpired {
-					expiry = time.Now().Add(-time.Hour) // Expired 1 hour ago
+					issuedAt = time.Now().Add(-25 * time.Hour) // Issued 25 hours ago
+					expiresIn = 24 * time.Hour
 				} else {
-					expiry = time.Now().Add(time.Hour) // Valid for 1 hour
+					issuedAt = time.Now()
+					expiresIn = 24 * time.Hour
 				}
 
 				token := &oauth2.Token{
 					AccessToken:  "test-access-token",
 					TokenType:    "Bearer",
 					RefreshToken: "test-refresh-token",
-					Expiry:       expiry,
+					Expiry:       time.Now().Add(time.Hour),
+				}
+
+				tokenWithExpiry := &TokenWithExpiry{
+					Token:     token,
+					IssuedAt:  issuedAt,
+					ExpiresIn: expiresIn,
 				}
 
 				// Save token to file
 				os.MkdirAll(filepath.Dir(tokenPath), 0700)
-				data, _ := json.Marshal(token)
+				data, _ := json.Marshal(tokenWithExpiry)
 				os.WriteFile(tokenPath, data, 0600)
 			}
 
@@ -186,7 +197,7 @@ func TestGetClient(t *testing.T) {
 				config: &oauth2.Config{
 					ClientID:     "test-client-id",
 					ClientSecret: "test-client-secret",
-					RedirectURL:  "http://localhost:8888/callback",
+					RedirectURL:  "http://localhost:8089/callback",
 				},
 				tokenPath: tokenPath,
 			}
@@ -422,10 +433,20 @@ func TestSaveToken(t *testing.T) {
 					return
 				}
 
-				// Verify JSON structure
-				var decodedToken oauth2.Token
-				if err := json.Unmarshal(data, &decodedToken); err != nil {
+				// Verify JSON structure (should be TokenWithExpiry)
+				var decodedTokenWithExpiry TokenWithExpiry
+				if err := json.Unmarshal(data, &decodedTokenWithExpiry); err != nil {
 					t.Errorf("saveToken() output is not valid JSON: %v", err)
+				}
+
+				// Verify the wrapped token
+				if decodedTokenWithExpiry.Token == nil {
+					t.Error("saveToken() TokenWithExpiry.Token is nil")
+				}
+
+				// Verify ExpiresIn is set to 24 hours
+				if decodedTokenWithExpiry.ExpiresIn != 24*time.Hour {
+					t.Errorf("saveToken() ExpiresIn = %v, want 24h", decodedTokenWithExpiry.ExpiresIn)
 				}
 
 				// Verify file permissions
