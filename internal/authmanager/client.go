@@ -10,11 +10,24 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/docs/v1"
 )
+
+// TokenWithExpiry wraps oauth2.Token with custom expiration time
+type TokenWithExpiry struct {
+	Token     *oauth2.Token `json:"token"`
+	IssuedAt  time.Time     `json:"issued_at"`
+	ExpiresIn time.Duration `json:"expires_in"`
+}
+
+// IsExpired checks if the token has expired based on custom expiration time
+func (t *TokenWithExpiry) IsExpired() bool {
+	return time.Since(t.IssuedAt) > t.ExpiresIn
+}
 
 // Authenticator handles the OAuth authentication flow
 //
@@ -31,16 +44,23 @@ type AuthManager struct {
 }
 
 // GetClient returns an authenticated HTTP client using saved token
-// Returns error if token doesn't exist
+// Returns error if token doesn't exist or is expired
 func (a *AuthManager) GetClient(ctx context.Context) (*http.Client, error) {
 	// トークンを読み込む
-	token, err := a.loadToken()
+	tokenWithExpiry, err := a.loadToken()
 	if err != nil {
 		return nil, fmt.Errorf("no saved token found: %w", err)
 	}
 
+	// 有効期限チェック
+	if tokenWithExpiry.IsExpired() {
+		// 期限切れの場合はトークンファイルを削除
+		os.Remove(a.tokenPath)
+		return nil, fmt.Errorf("token has expired after %v, please re-authenticate", tokenWithExpiry.ExpiresIn)
+	}
+
 	// 認証済みクライアントを作成
-	client := a.config.Client(ctx, token)
+	client := a.config.Client(ctx, tokenWithExpiry.Token)
 	return client, nil
 }
 
@@ -168,8 +188,15 @@ func (a *AuthManager) saveToken(token *oauth2.Token) error {
 		return fmt.Errorf("failed to create token directory: %w", err)
 	}
 
+	// TokenWithExpiryを作成（デフォルト24時間）
+	tokenWithExpiry := &TokenWithExpiry{
+		Token:     token,
+		IssuedAt:  time.Now(),
+		ExpiresIn: 24 * time.Hour,
+	}
+
 	// トークンをJSONに変換
-	data, err := json.Marshal(token)
+	data, err := json.Marshal(tokenWithExpiry)
 	if err != nil {
 		return fmt.Errorf("failed to marshal token: %w", err)
 	}
@@ -182,7 +209,7 @@ func (a *AuthManager) saveToken(token *oauth2.Token) error {
 	return nil
 }
 
-func (a *AuthManager) loadToken() (*oauth2.Token, error) {
+func (a *AuthManager) loadToken() (*TokenWithExpiry, error) {
 	// ファイルを読み込む
 	data, err := os.ReadFile(a.tokenPath)
 	if err != nil {
@@ -190,12 +217,12 @@ func (a *AuthManager) loadToken() (*oauth2.Token, error) {
 	}
 
 	// JSONをパース
-	var token oauth2.Token
-	if err := json.Unmarshal(data, &token); err != nil {
+	var tokenWithExpiry TokenWithExpiry
+	if err := json.Unmarshal(data, &tokenWithExpiry); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal token: %w", err)
 	}
 
-	return &token, nil
+	return &tokenWithExpiry, nil
 }
 
 // openBrowser opens the default browser to the specified URL
