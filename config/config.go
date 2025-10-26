@@ -13,6 +13,7 @@ type Config struct {
 type GoogleConfig struct {
 	ClientID     string `mapstructure:"GOOGLE_CLIENT_ID"`
 	ClientSecret string `mapstructure:"GOOGLE_CLIENT_SECRET"`
+	TestDocID    string `mapstructure:"GOOGLE_TEST_DOC_ID"`
 }
 
 // Load loads configuration from .env file and environment variables
@@ -42,6 +43,7 @@ func LoadFromFile(configFile string) (*Config, error) {
 		Google: GoogleConfig{
 			ClientID:     v.GetString("GOOGLE_CLIENT_ID"),
 			ClientSecret: v.GetString("GOOGLE_CLIENT_SECRET"),
+			TestDocID:    v.GetString("GOOGLE_TEST_DOC_ID"),
 		},
 	}
 
